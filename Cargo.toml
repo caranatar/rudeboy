@@ -1,0 +1,15 @@
+[package]
+name = "rudeboy"
+version = "0.1.0"
+authors = ["Caranatar <caranatar@riseup.net>"]
+edition = "2018"
+license = "MIT"
+description = "Rlua User Data Extension Boy - Derive/attr macros and traits for easily exporting user data to RLua"
+homepage = "https://github.com/caranatar/rudeboy"
+repository = "https://github.com/caranatar/rudeboy"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rlua = "0.17"
+rudeboy-derive = "0.1"
