@@ -1,423 +1,157 @@
 //! rudeboy - Rlua User Data Extension library
 //!
-//! Provides derive macros and impl block attribute macros which
-//! allow for easily generating an index metamethod and exposing rust methods to
-//! lua using the `rlua` crate.
+//! Provides attribute macros which allow for easily generating metamethod
+//! implementations, exporting methods, and exporting rust structs and enums to
+//! lua with the use of the `rlua` crate.
 //!
-//! # Usage
-//! There are five major use cases allowed by the crate, covered in the below
-//! sections.
+//! # Generating metamethods
+//! To generate metamethods for a struct or enum, use the [`metamethods`]
+//! attribute on the type's definition, along with a list of parameters
+//! indicating the metamethods to generate implementations for. With the
+//! exception of the Index metamethod, which can only be generated for structs
+//! with named fields and which parses the struct definition, every generated
+//! metamethod expects and uses the corresponding rust trait to provide 
+//! implementation details. See the [`metamethods`] attribute documentation for
+//! the full list of supported metamethods and the rust traits each one uses.
 //!
-//! ## Index metamethod only
-//! This allows the fields of an instance of the UserData struct to be accessed
-//! from lua using the `instance.field` syntax, but does not generate or allow
-//! the user to add any further methods
-//!
+//! ## Examples
 //! ```
-//!# use rlua::Result;
-//!# fn test() -> Result<()> {
-//! use rudeboy::IndexSealed;
-//!
-//! #[derive(IndexSealed)]
-//! struct Foo {
-//!     bar: String,
-//!     baz: f64,
-//! }
-//!
-//! let lua = rlua::Lua::new();
-//! lua.context(|ctx| {
-//!     // Add an instance of Foo to the lua environment
-//!     let globals = ctx.globals();
-//!     let bar = "bar".to_string();
-//!     let baz = 23.0;
-//!     globals.set("a_foo", Foo { bar: bar.clone(), baz })?;
-//!
-//!     // Use the index metamethod to access fields
-//!     let lua_bar = ctx.load("a_foo.bar").eval::<String>()?;
-//!     assert_eq!(lua_bar, bar);
-//!     let lua_baz = ctx.load("a_foo.baz").eval::<f64>()?;
-//!     assert_eq!(lua_baz, baz);
-//!
-//!     Ok(())
-//! })?;
-//!# Ok(())
-//!# }
-//!# let res = test();
-//!# println!("{:?}", res);
-//!# assert!(res.is_ok());
+//! # fn test() -> rlua::Result<()> {
+//! todo!()
+//! # }
+//! # assert!(test().is_ok());
 //! ```
 //!
-//! ## Index metamethod with additional user definitions
-//! This allows the fields of an instance of the UserData struct to be accessed
-//! from lua using the `instance.field` syntax, but does not generate an impl
-//! for `rlua::UserData`. The user must use the [`RudeboyIndex`] trait to add the
-//! index metamethod, but is also free to add additional methods to be accessed
-//! from lua
+//! # Exporting methods
+//! To export methods for a struct or enum, use the [`methods`] attribute on the
+//! impl block for the corresponding type, containing the methods that you wish
+//! to export to lua. Currently, there is no way to ignore a method other than
+//! placing it in a separate impl block without the [`methods`] attribute.
 //!
+//! ## Examples
 //! ```
-//!# use rlua::Result;
-//!# fn test() -> Result<()> {
-//! use rudeboy::Index;
-//!
-//! #[derive(Index)]
-//! struct Foo {
-//!     bar: String,
-//!     baz: f64,
-//! }
-//!
-//! impl rlua::UserData for Foo {
-//!     fn add_methods<'lua, M: ::rlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-//!         // Use the rudeboy-generated trait to add the index metamethod
-//!         use rudeboy::RudeboyIndex;
-//!         Foo::generate_index(methods);
-//!
-//!         // Add additional user-defined methods
-//!         methods.add_method("user_method", |_, data, ()| {
-//!             Ok(data.baz * 2.0)
-//!         });
-//!     }
-//! }
-//!
-//! let lua = rlua::Lua::new();
-//! lua.context(|ctx| {
-//!     // Add an instance of Foo to the lua environment
-//!     let globals = ctx.globals();
-//!     let bar = "bar".to_string();
-//!     let baz = 23.0;
-//!     globals.set("a_foo", Foo { bar: bar.clone(), baz })?;
-//!
-//!     // Use the index metamethod to access fields
-//!     let lua_bar = ctx.load("a_foo.bar").eval::<String>()?;
-//!     assert_eq!(lua_bar, bar);
-//!     let lua_baz = ctx.load("a_foo.baz").eval::<f64>()?;
-//!     assert_eq!(lua_baz, baz);
-//!
-//!     // Use the user defined method
-//!     let udm = ctx.load("a_foo:user_method()").eval::<f64>()?;
-//!     assert_eq!(baz * 2.0, udm);
-//!
-//!     Ok(())
-//! })?;
-//!# Ok(())
-//!# }
-//!# let res = test();
-//!# println!("{:?}", res);
-//!# assert!(res.is_ok());
+//! # fn test() -> rlua::Result<()> {
+//! todo!()
+//! # }
+//! # assert!(test().is_ok());
 //! ```
 //!
-//! ## Index metamethod and rust methods only
-//! This generates an index metamethod and exposes the methods in the tagged impl
-//! block to lua, as well as generating an impl of UserData. The user cannot add
-//! any further user defined methods, however.
+//! # Generating `rlua::UserData` implementation
+//! To export a struct or enum for use with `rlua`, use the [`user_data`]
+//! attribute on the type definition or an associated impl block. When given no
+//! parameters, an empty `UserData` implementation is generated that provides no
+//! metamethods or methods for use in lua. If given the `MetaMethods` parameter,
+//! the metamethods generated by [`metamethods`] will be exported, and if given
+//! the `Methods` parameter, the methods generated by [`methods`] will be
+//! exported. Note that this attribute will prevent the user from adding any
+//! additional methods to the exported type beyond what can be generated with the
+//! [`methods`] and [`metamethods`] attributes. If you wish to export additional
+//! methods, write your own implementation of `rlua::UserData` and call the
+//! appropriate methods from the [`RudeboyMethods`] and [`RudeboyMetaMethods`]
+//! traits.
 //!
+//! ## Examples
 //! ```
-//!# use rlua::Result;
-//!# fn test() -> Result<()> {
-//! use rudeboy::{Index, MethodsSealed};
-//!
-//! #[derive(Index)]
-//! struct Foo {
-//!     bar: String,
-//!     baz: f64,
-//! }
-//!
-//! #[MethodsSealed]
-//! impl Foo {
-//!     // Methods must take self as their receiver...
-//!     fn double(&self) -> f64 {
-//!         self.baz * 2.0
-//!     }
-//!
-//!     // ... but can take mut self as well
-//!     fn set_baz(&mut self, baz: f64) {
-//!         self.baz = baz;
-//!     }
-//! }
-//!
-//! let lua = rlua::Lua::new();
-//! lua.context(|ctx| {
-//!     // Add an instance of Foo to the lua environment
-//!     let globals = ctx.globals();
-//!     let bar = "bar".to_string();
-//!     let baz = 23.0;
-//!     globals.set("a_foo", Foo { bar: bar.clone(), baz })?;
-//!
-//!     // Use the index metamethod to access fields
-//!     let lua_bar = ctx.load("a_foo.bar").eval::<String>()?;
-//!     assert_eq!(lua_bar, bar);
-//!     let lua_baz = ctx.load("a_foo.baz").eval::<f64>()?;
-//!     assert_eq!(lua_baz, baz);
-//!
-//!     // Use the immutable method
-//!     let doubled = ctx.load("a_foo:double()").eval::<f64>()?;
-//!     assert_eq!(baz * 2.0, doubled);
-//!
-//!     // Use the mutable method
-//!     ctx.load("a_foo:set_baz(5.0)").exec()?;
-//!     let new_baz = ctx.load("a_foo.baz").eval::<f64>()?;
-//!     assert_eq!(new_baz, 5.0);
-//!
-//!     Ok(())
-//! })?;
-//!# Ok(())
-//!# }
-//!# let res = test();
-//!# println!("{:?}", res);
-//!# assert!(res.is_ok());
+//! # fn test() -> rlua::Result<()> {
+//! todo!()
+//! # }
+//! # assert!(test().is_ok());
 //! ```
 //!
-//! ## Index metamethod and rust methods with additional user definitions
-//! This generates an index metamethod and exposes the methods in the tagged impl
-//! block to lua, but does not generate an impl of UserData. The user can then
-//! add additional methods using `rlua::UserData`, but must use the
-//! [`RudeboyIndex`] and [`RudeboyMethods`] traits to add the generated methods
-//! to the user data.
-//!
-//! ```
-//!# use rlua::Result;
-//!# fn test() -> Result<()> {
-//! use rudeboy::{Index, Methods};
-//!
-//! #[derive(Index)]
-//! struct Foo {
-//!     bar: String,
-//!     baz: f64,
-//! }
-//!
-//! #[Methods]
-//! impl Foo {
-//!     // Methods must take self as their receiver...
-//!     fn double(&self) -> f64 {
-//!         self.baz * 2.0
-//!     }
-//!
-//!     // ... but can take mut self as well
-//!     fn set_baz(&mut self, baz: f64) {
-//!         self.baz = baz;
-//!     }
-//! }
-//!
-//! impl rlua::UserData for Foo {
-//!     fn add_methods<'lua, M: ::rlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-//!         // Use the rudeboy-generated trait to add the index metamethod
-//!         use rudeboy::RudeboyIndex;
-//!         Foo::generate_index(methods);
-//!
-//!         // Use the rudeboy-generated trait to add the methods from the tagged
-//!         // impl block
-//!         use rudeboy::RudeboyMethods;
-//!         Foo::generate_methods(methods);
-//!
-//!         // Add additional user-defined methods
-//!         methods.add_method("user_method", |_, data, ()| {
-//!             Ok(data.baz * 2.0)
-//!         });
-//!     }
-//! }
-//!
-//! let lua = rlua::Lua::new();
-//! lua.context(|ctx| {
-//!     // Add an instance of Foo to the lua environment
-//!     let globals = ctx.globals();
-//!     let bar = "bar".to_string();
-//!     let baz = 23.0;
-//!     globals.set("a_foo", Foo { bar: bar.clone(), baz })?;
-//!
-//!     // Use the index metamethod to access fields
-//!     let lua_bar = ctx.load("a_foo.bar").eval::<String>()?;
-//!     assert_eq!(lua_bar, bar);
-//!     let lua_baz = ctx.load("a_foo.baz").eval::<f64>()?;
-//!     assert_eq!(lua_baz, baz);
-//!
-//!     // Use the immutable method
-//!     let udm = ctx.load("a_foo:double()").eval::<f64>()?;
-//!     assert_eq!(baz * 2.0, udm);
-//!
-//!     // Use the mutable method
-//!     ctx.load("a_foo:set_baz(5.0)").exec()?;
-//!     let new_baz = ctx.load("a_foo.baz").eval::<f64>()?;
-//!     assert_eq!(new_baz, 5.0);
-//!
-//!     // Use the user defined method
-//!     let udm = ctx.load("a_foo:user_method()").eval::<f64>()?;
-//!     assert_eq!(new_baz * 2.0, udm);
-//!
-//!     Ok(())
-//! })?;
-//!# Ok(())
-//!# }
-//!# let res = test();
-//!# println!("{:?}", res);
-//!# assert!(res.is_ok());
-//! ```
-//!
-//! ## Rust methods with no index metamethod
-//! Exposes methods in an impl block to lua without creating an index metamethod
-//! for the type. Also generates an impl for `rlua::UserData`, which means the
-//! user cannot add additional user-defined methods
-//!
-//! This example uses [`MethodsSealed`] to add methods from an impl block as well
-//! as generating a `rlua::UserData` impl for the type. Note that
-//! [`MethodsSealed`] expects an implementation of [`RudeboyIndex`] for the type,
-//! so we must use the derive macro [`NoIndex`] in order to provide an empty
-//! implementation of that trait.
-//!
-//! ```
-//!# use rlua::Result;
-//!# fn test() -> Result<()> {
-//! use rudeboy::{NoIndex, MethodsSealed};
-//!
-//! // Derives Clone so that an instance can be retrieved from the lua context
-//! #[derive(Clone, NoIndex)]
-//! struct Foo {
-//!     bar: String,
-//!     baz: f64,
-//! }
-//!
-//! #[MethodsSealed]
-//! impl Foo {
-//!     // Methods must take self as their receiver...
-//!     fn double(&self) -> f64 {
-//!         self.baz * 2.0
-//!     }
-//!
-//!     // ... but can take mut self as well
-//!     fn set_baz(&mut self, baz: f64) {
-//!         self.baz = baz;
-//!     }
-//! }
-//!
-//! let lua = rlua::Lua::new();
-//! lua.context(|ctx| {
-//!     // Add an instance of Foo to the lua environment
-//!     let globals = ctx.globals();
-//!     let bar = "bar".to_string();
-//!     let baz = 23.0;
-//!     globals.set("a_foo", Foo { bar: bar.clone(), baz })?;
-//!
-//!     // Use the immutable method
-//!     let udm = ctx.load("a_foo:double()").eval::<f64>()?;
-//!     assert_eq!(baz * 2.0, udm);
-//!
-//!     // Use the mutable method
-//!     ctx.load("a_foo:set_baz(5.0)").exec()?;
-//!     let new_foo = ctx.load("a_foo").eval::<Foo>()?;
-//!     assert_eq!(new_foo.baz, 5.0);
-//!
-//!     Ok(())
-//! })?;
-//!# Ok(())
-//!# }
-//!# let res = test();
-//!# println!("{:?}", res);
-//!# assert!(res.is_ok());
-//! ``` 
-//!
-//! ## Rust methods with no index metamethod, but with user defined methods
-//! This generates an impl for [`RudeboyMethods`] that will add the methods from
-//! an impl block, but will not generate an index metamethod or generate an impl
-//! for `rlua::UserData`. This allows the user to add additional user-defined
-//! methods.
-//!
-//! Note that because this approach does not use [`MethodsSealed`], there is no
-//! need for the struct to use the [`NoIndex`] derive macro.
-//!
-//! ```
-//!# use rlua::Result;
-//!# fn test() -> Result<()> {
-//! use rudeboy::{Index, Methods};
-//!
-//! // Derives Clone so that an instance can be retrieved from the lua context
-//! #[derive(Clone)]
-//! struct Foo {
-//!     bar: String,
-//!     baz: f64,
-//! }
-//!
-//! #[Methods]
-//! impl Foo {
-//!     // Methods must take self as their receiver...
-//!     fn double(&self) -> f64 {
-//!         self.baz * 2.0
-//!     }
-//!
-//!     // ... but can take mut self as well
-//!     fn set_baz(&mut self, baz: f64) {
-//!         self.baz = baz;
-//!     }
-//! }
-//!
-//! impl rlua::UserData for Foo {
-//!     fn add_methods<'lua, M: ::rlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-//!         // Note: the call for RudeboyIndex::generate_index is simply ommitted
-//!
-//!         // Use the rudeboy-generated trait to add the methods from the tagged
-//!         // impl block
-//!         use rudeboy::RudeboyMethods;
-//!         Foo::generate_methods(methods);
-//!
-//!         // Add additional user-defined methods
-//!         methods.add_method("user_method", |_, data, ()| {
-//!             Ok(data.baz * 2.0)
-//!         });
-//!     }
-//! }
-//!
-//! let lua = rlua::Lua::new();
-//! lua.context(|ctx| {
-//!     // Add an instance of Foo to the lua environment
-//!     let globals = ctx.globals();
-//!     let bar = "bar".to_string();
-//!     let baz = 23.0;
-//!     globals.set("a_foo", Foo { bar: bar.clone(), baz })?;
-//!
-//!     // Use the immutable method
-//!     let udm = ctx.load("a_foo:double()").eval::<f64>()?;
-//!     assert_eq!(baz * 2.0, udm);
-//!
-//!     // Use the mutable method
-//!     ctx.load("a_foo:set_baz(5.0)").exec()?;
-//!     let new_foo = ctx.load("a_foo").eval::<Foo>()?;
-//!     assert_eq!(new_foo.baz, 5.0);
-//!
-//!     // Use the user defined method
-//!     let udm = ctx.load("a_foo:user_method()").eval::<f64>()?;
-//!     assert_eq!(new_foo.baz * 2.0, udm);
-//!
-//!     Ok(())
-//! })?;
-//!# Ok(())
-//!# }
-//!# let res = test();
-//!# println!("{:?}", res);
-//!# assert!(res.is_ok());
-//! ```
-//!
-//! [`RudeboyIndex`]: trait.RudeboyIndex.html
+//! [`metamethods`]: attr.metamethods.html
+//! [`methods`]: attr.methods.html
+//! [`user_data`]: attr.user_data.html
+//! [`RudeboyMetaMethods`]: trait.RudeboyMetaMethods.html
 //! [`RudeboyMethods`]: trait.RudeboyMethods.html
-//! [`NoIndex`]: derive.NoIndex.html
-//! [`MethodsSealed`]: attr.MethodsSealed.html
-pub use rudeboy_derive::{Index, IndexSealed, NoIndex, Methods, MethodsSealed};
+pub use rudeboy_derive::{
+    metamethods,
+    methods,
+    user_data,
+};
 
 use rlua::{UserData, UserDataMethods};
 
-/// Used to generate an index metamethod for a UserData struct
+/// Provides methods for registering each supported metamethod. The
+/// `generate_metamethods` method will call all of them. Generated by the
+/// [`metamethods`] attribute macro.
 ///
-/// Implementations provided by [`Index`], [`NoIndex`], and [`IndexSealed`]
-///
-/// [`Index`]: derive.Index.html
-/// [`NoIndex`]: derive.NoIndex.html
-/// [`IndexSealed`]: derive.IndexSealed.html
-pub trait RudeboyIndex : Sized + UserData {
-    fn generate_index<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M);
+/// [`metamethods`]: attr.metamethods.html
+pub trait RudeboyMetaMethods : Sized + UserData {
+    /// The index metamethod for accessing fields using the dot syntax:
+    /// `instance.field`
+    fn generate_index<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The equality metamethod for the binary `==` operator
+    fn generate_eq<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The addition metamethod for the binary `+` operator
+    fn generate_add<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The subtraction metamethod for the binary `-` operator
+    fn generate_sub<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The multiplication metamethod for the binary `*` operator
+    fn generate_mul<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The division metamethod for the binary `/` operator
+    fn generate_div<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The modulo metamethod for the binary `%` operator
+    fn generate_mod<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The unary minus metamethod for the unary `-` operator
+    fn generate_unm<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The bitwise and metamethod for the binary `&` operator
+    fn generate_band<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The bitwise or metamethod for the binary `|` operator
+    fn generate_bor<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The bitwise xor metamethod for the binary `~` operator
+    fn generate_bxor<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The bitwise not metamethod for the unary `~` operator
+    fn generate_bnot<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The shift left metamethod for the binary `<<` operator
+    fn generate_shl<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The shift right metamethod for the binary `>>` operator
+    fn generate_shr<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The less than metamethod for the binary `<` operator
+    fn generate_lt<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// The less-than-or-equal metamethod for the binary `<=` operator
+    fn generate_le<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+
+    /// Calls every individual `generate_*` method in this trait
+    fn generate_metamethods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+        Self::generate_index(methods);
+        Self::generate_eq(methods);
+        Self::generate_add(methods);
+        Self::generate_sub(methods);
+        Self::generate_mul(methods);
+        Self::generate_div(methods);
+        Self::generate_mod(methods);
+        Self::generate_unm(methods);
+        Self::generate_band(methods);
+        Self::generate_bor(methods);
+        Self::generate_bxor(methods);
+        Self::generate_bnot(methods);
+        Self::generate_shl(methods);
+        Self::generate_shr(methods);
+        Self::generate_lt(methods);
+        Self::generate_le(methods);
+    }
 }
 
 /// Used to expose, to rlua, rust methods for a UserData struct
 ///
-/// Implementations provided by [`Methods`] and [`MethodsSealed`]
+/// Implementations provided by [`methods`]
 ///
-/// [`Methods`]: attr.Methods.html
-/// [`MethodsSealed`]: attr.MethodsSealed.html
+/// [`methods`]: attr.methods.html
 pub trait RudeboyMethods : Sized + UserData {
     fn generate_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M);
 }
