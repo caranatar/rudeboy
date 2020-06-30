@@ -12,4 +12,4 @@ repository = "https://github.com/caranatar/rudeboy"
 
 [dependencies]
 rlua = "0.17"
-rudeboy-derive = "0.1"
+rudeboy-derive = "0.2"
