@@ -17,7 +17,34 @@
 //! ## Examples
 //! ```
 //! # fn test() -> rlua::Result<()> {
-//! todo!()
+//! use rudeboy::{metamethods, user_data};
+//!
+//! #[metamethods(Add, Eq, Index)]
+//! #[user_data(MetaMethods)]
+//! #[derive(PartialEq, Copy, Clone)]
+//! struct Test {
+//!     x: i32,
+//! }
+//!
+//! impl std::ops::Add for Test {
+//!     type Output = Self;
+//!     fn add(self, other: Self) -> Self {
+//!         Test { x: self.x + other.x }
+//!     }
+//! }
+//!
+//! let lua = rlua::Lua::new();
+//! lua.context(|ctx| {
+//!     let globals = ctx.globals();
+//!     globals.set("one", Test { x: 1 })?;
+//!     globals.set("two", Test { x: 2 })?;
+//!     ctx.load("sum = one + one").exec()?;
+//!     assert!(ctx.load("sum == two").eval::<bool>()?);
+//!     assert_eq!(ctx.load("sum.x").eval::<i32>()?, 2);
+//!
+//!     Ok(())
+//! })?;
+//! # Ok(())
 //! # }
 //! # assert!(test().is_ok());
 //! ```
@@ -31,7 +58,50 @@
 //! ## Examples
 //! ```
 //! # fn test() -> rlua::Result<()> {
-//! todo!()
+//! use rudeboy::{methods, user_data};
+//!
+//! #[user_data(Methods)]
+//! #[derive(PartialEq, Debug, Clone)]
+//! enum Sign {
+//!     Minus,
+//!     Plus,
+//! }
+//!
+//! #[methods]
+//! impl Sign {
+//!     // This method will be exposed to lua...
+//!     pub fn flip(&self) -> Self {
+//!         match self {
+//!             Sign::Minus => Sign::Plus,
+//!             Sign::Plus => Sign::Minus,
+//!         }
+//!     }
+//! }
+//!
+//! 
+//! impl Sign {
+//!     // ... but this method won't
+//!     pub fn apply(&self, x: i32) -> i32 {
+//!         match self {
+//!             Sign::Minus => -x,
+//!             Sign::Plus => x,
+//!         }
+//!     }
+//! }
+//!
+//! let lua = rlua::Lua::new();
+//! lua.context(|ctx| {
+//!     let globals = ctx.globals();
+//!     globals.set("plus", Sign::Plus)?;
+//!     globals.set("minus", Sign::Minus)?;
+//!
+//!     assert_eq!(ctx.load("plus:flip()").eval::<Sign>()?, Sign::Minus);
+//!     assert_eq!(ctx.load("minus:flip()").eval::<Sign>()?, Sign::Plus);
+//!     assert_eq!(ctx.load("minus:flip():flip()").eval::<Sign>()?, Sign::Minus);
+//!
+//!     Ok(())
+//! })?;
+//! # Ok(())
 //! # }
 //! # assert!(test().is_ok());
 //! ```
@@ -53,7 +123,46 @@
 //! ## Examples
 //! ```
 //! # fn test() -> rlua::Result<()> {
-//! todo!()
+//! use rudeboy::{metamethods, methods, user_data};
+//!
+//! // Tagging a type with user_data with no parameters means it can be passed
+//! // in and out of lua, but no metamethods or methods will be available
+//! #[user_data]
+//! #[derive(Clone)]
+//! enum Amount {
+//!     Single,
+//!     Double,
+//! }
+//!
+//! #[user_data(Methods)]
+//! #[derive(Clone, PartialEq)]
+//! struct Test {
+//!     x: f64,
+//! }
+//!
+//! #[methods]
+//! impl Test {
+//!     pub fn get(&self, amount: Amount) -> f64 {
+//!         match amount {
+//!             Amount::Single => self.x,
+//!             Amount::Double => self.x * 2.0,
+//!         }
+//!     }
+//! }
+//!
+//! let lua = rlua::Lua::new();
+//! lua.context(|ctx| {
+//!     let globals = ctx.globals();
+//!     globals.set("single", Amount::Single)?;
+//!     globals.set("double", Amount::Double)?;
+//!     globals.set("test", Test { x: 5.0 })?;
+//!
+//!     assert_eq!(ctx.load("test:get(single)").eval::<f64>()?, 5.0);
+//!     assert_eq!(ctx.load("test:get(double)").eval::<f64>()?, 10.0);
+//!
+//!     Ok(())
+//! })?;
+//! # Ok(())
 //! # }
 //! # assert!(test().is_ok());
 //! ```
